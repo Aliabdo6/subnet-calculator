@@ -1,0 +1,1297 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>NetSlicer — Subnet Calculator</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<link href="https://fonts.googleapis.com/css2?family=Share+Tech+Mono&family=Orbitron:wght@400;700;900&family=Space+Mono:wght@400;700&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --neon: #00ffe7;
+    --neon2: #ff2d78;
+    --neon3: #ffe600;
+    --bg: #060c14;
+    --bg2: #0b1523;
+    --card: #0d1e30;
+    --border: #1a3a5c;
+    --text: #c8e6ff;
+    --dim: #4a7fa5;
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    font-family: 'Share Tech Mono', monospace;
+    background: var(--bg);
+    color: var(--text);
+    min-height: 100vh;
+    overflow-x: hidden;
+  }
+
+  /* Animated grid background */
+  body::before {
+    content: '';
+    position: fixed;
+    inset: 0;
+    background-image:
+      linear-gradient(rgba(0,255,231,0.03) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(0,255,231,0.03) 1px, transparent 1px);
+    background-size: 40px 40px;
+    pointer-events: none;
+    z-index: 0;
+  }
+
+  /* Scanlines */
+  body::after {
+    content: '';
+    position: fixed;
+    inset: 0;
+    background: repeating-linear-gradient(
+      0deg,
+      transparent,
+      transparent 2px,
+      rgba(0,0,0,0.15) 2px,
+      rgba(0,0,0,0.15) 4px
+    );
+    pointer-events: none;
+    z-index: 0;
+  }
+
+  .container { position: relative; z-index: 1; }
+
+  /* Header */
+  header {
+    border-bottom: 1px solid var(--border);
+    background: linear-gradient(180deg, #0a1929 0%, transparent 100%);
+    padding: 1.5rem 2rem;
+  }
+
+  .logo {
+    font-family: 'Orbitron', monospace;
+    font-weight: 900;
+    font-size: 2rem;
+    color: var(--neon);
+    text-shadow: 0 0 20px rgba(0,255,231,0.8), 0 0 60px rgba(0,255,231,0.3);
+    letter-spacing: 0.2em;
+  }
+
+  .logo span { color: var(--neon2); text-shadow: 0 0 20px rgba(255,45,120,0.8); }
+
+  .tagline {
+    font-size: 0.7rem;
+    color: var(--dim);
+    letter-spacing: 0.3em;
+    text-transform: uppercase;
+    margin-top: 0.2rem;
+  }
+
+  /* Tabs */
+  .tab-bar {
+    display: flex;
+    gap: 0;
+    border-bottom: 1px solid var(--border);
+    background: var(--bg2);
+    overflow-x: auto;
+  }
+
+  .tab-btn {
+    padding: 0.8rem 1.5rem;
+    background: transparent;
+    border: none;
+    border-right: 1px solid var(--border);
+    color: var(--dim);
+    font-family: 'Share Tech Mono', monospace;
+    font-size: 0.75rem;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    cursor: pointer;
+    transition: all 0.2s;
+    white-space: nowrap;
+    position: relative;
+  }
+
+  .tab-btn.active {
+    color: var(--neon);
+    background: var(--card);
+    text-shadow: 0 0 10px rgba(0,255,231,0.5);
+  }
+
+  .tab-btn.active::after {
+    content: '';
+    position: absolute;
+    bottom: -1px;
+    left: 0; right: 0;
+    height: 2px;
+    background: var(--neon);
+    box-shadow: 0 0 10px var(--neon);
+  }
+
+  .tab-btn:hover:not(.active) { color: var(--text); background: rgba(255,255,255,0.03); }
+
+  /* Cards */
+  .card {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    overflow: hidden;
+    position: relative;
+  }
+
+  .card::before {
+    content: '';
+    position: absolute;
+    top: 0; left: 0; right: 0;
+    height: 1px;
+    background: linear-gradient(90deg, transparent, var(--neon), transparent);
+    opacity: 0.4;
+  }
+
+  .card-title {
+    font-family: 'Orbitron', monospace;
+    font-size: 0.65rem;
+    letter-spacing: 0.2em;
+    color: var(--neon);
+    text-transform: uppercase;
+    padding: 0.75rem 1rem;
+    border-bottom: 1px solid var(--border);
+    background: rgba(0,255,231,0.03);
+  }
+
+  /* Inputs */
+  .neon-input {
+    width: 100%;
+    background: rgba(0,0,0,0.4);
+    border: 1px solid var(--border);
+    border-radius: 3px;
+    color: var(--neon);
+    font-family: 'Share Tech Mono', monospace;
+    font-size: 1rem;
+    padding: 0.75rem 1rem;
+    outline: none;
+    transition: all 0.2s;
+    caret-color: var(--neon);
+  }
+
+  .neon-input:focus {
+    border-color: var(--neon);
+    box-shadow: 0 0 15px rgba(0,255,231,0.2), inset 0 0 10px rgba(0,255,231,0.05);
+  }
+
+  .neon-input::placeholder { color: var(--dim); }
+
+  /* Buttons */
+  .btn-primary {
+    background: transparent;
+    border: 1px solid var(--neon);
+    color: var(--neon);
+    font-family: 'Orbitron', monospace;
+    font-size: 0.75rem;
+    font-weight: 700;
+    letter-spacing: 0.15em;
+    padding: 0.75rem 2rem;
+    cursor: pointer;
+    transition: all 0.2s;
+    text-transform: uppercase;
+    position: relative;
+    overflow: hidden;
+  }
+
+  .btn-primary::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background: var(--neon);
+    transform: translateX(-100%);
+    transition: transform 0.2s;
+    z-index: -1;
+  }
+
+  .btn-primary:hover {
+    color: var(--bg);
+    text-shadow: none;
+    box-shadow: 0 0 20px rgba(0,255,231,0.4);
+  }
+
+  .btn-primary:hover::before { transform: translateX(0); }
+
+  .btn-secondary {
+    background: transparent;
+    border: 1px solid var(--neon2);
+    color: var(--neon2);
+    font-family: 'Orbitron', monospace;
+    font-size: 0.7rem;
+    letter-spacing: 0.1em;
+    padding: 0.5rem 1rem;
+    cursor: pointer;
+    transition: all 0.2s;
+    text-transform: uppercase;
+  }
+
+  .btn-secondary:hover { background: var(--neon2); color: var(--bg); }
+
+  /* Result rows */
+  .result-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 0.7rem 1rem;
+    border-bottom: 1px solid rgba(26,58,92,0.5);
+    transition: background 0.15s;
+  }
+
+  .result-row:hover { background: rgba(0,255,231,0.03); }
+  .result-row:last-child { border-bottom: none; }
+
+  .result-label { color: var(--dim); font-size: 0.75rem; letter-spacing: 0.1em; }
+
+  .result-value {
+    color: var(--neon);
+    font-size: 0.95rem;
+    text-shadow: 0 0 8px rgba(0,255,231,0.4);
+    text-align: right;
+  }
+
+  .result-value.pink { color: var(--neon2); text-shadow: 0 0 8px rgba(255,45,120,0.4); }
+  .result-value.yellow { color: var(--neon3); text-shadow: 0 0 8px rgba(255,230,0,0.4); }
+
+  /* Binary display */
+  .binary-row {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    padding: 0.4rem 0;
+    font-size: 0.85rem;
+  }
+
+  .binary-label { color: var(--dim); font-size: 0.7rem; min-width: 110px; }
+
+  .bit-group {
+    display: flex;
+    gap: 2px;
+  }
+
+  .bit {
+    width: 20px;
+    height: 26px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 0.8rem;
+    border-radius: 2px;
+    transition: all 0.3s;
+    font-weight: 700;
+  }
+
+  .bit-1 {
+    background: rgba(0,255,231,0.15);
+    color: var(--neon);
+    border: 1px solid rgba(0,255,231,0.4);
+    text-shadow: 0 0 6px var(--neon);
+  }
+
+  .bit-0 {
+    background: rgba(255,255,255,0.03);
+    color: var(--dim);
+    border: 1px solid rgba(26,58,92,0.5);
+  }
+
+  .bit-network { background: rgba(0,255,231,0.2); border-color: rgba(0,255,231,0.6); }
+  .bit-host { background: rgba(255,45,120,0.1); border-color: rgba(255,45,120,0.3); color: var(--neon2); }
+  .bit-dot { color: var(--dim); font-size: 1rem; padding: 0 2px; }
+
+  /* IP Visual Bar */
+  .ip-bar {
+    height: 8px;
+    border-radius: 4px;
+    overflow: hidden;
+    display: flex;
+    background: rgba(0,0,0,0.3);
+  }
+
+  .ip-bar-network {
+    background: linear-gradient(90deg, var(--neon), rgba(0,255,231,0.6));
+    transition: width 0.5s cubic-bezier(0.4,0,0.2,1);
+    box-shadow: 0 0 10px rgba(0,255,231,0.4);
+  }
+
+  .ip-bar-host {
+    background: linear-gradient(90deg, rgba(255,45,120,0.6), var(--neon2));
+    box-shadow: 0 0 10px rgba(255,45,120,0.4);
+  }
+
+  /* Steps animation */
+  .step-item {
+    border-left: 2px solid var(--border);
+    padding-left: 1rem;
+    margin-left: 0.5rem;
+    margin-bottom: 1rem;
+    opacity: 0;
+    transform: translateX(-10px);
+    animation: stepIn 0.3s forwards;
+  }
+
+  @keyframes stepIn {
+    to { opacity: 1; transform: translateX(0); }
+  }
+
+  .step-number {
+    display: inline-block;
+    width: 22px; height: 22px;
+    background: var(--neon);
+    color: var(--bg);
+    font-family: 'Orbitron', monospace;
+    font-size: 0.65rem;
+    font-weight: 700;
+    border-radius: 50%;
+    text-align: center;
+    line-height: 22px;
+    margin-bottom: 0.3rem;
+    box-shadow: 0 0 10px rgba(0,255,231,0.5);
+  }
+
+  .step-title { color: var(--neon); font-size: 0.75rem; margin-bottom: 0.3rem; letter-spacing: 0.1em; }
+  .step-body { color: var(--text); font-size: 0.8rem; line-height: 1.6; }
+  .step-body code {
+    color: var(--neon3);
+    background: rgba(255,230,0,0.08);
+    padding: 1px 4px;
+    border-radius: 2px;
+    font-family: 'Share Tech Mono', monospace;
+  }
+
+  /* CIDR slider */
+  input[type=range] {
+    -webkit-appearance: none;
+    appearance: none;
+    width: 100%;
+    height: 4px;
+    background: var(--border);
+    border-radius: 2px;
+    outline: none;
+  }
+
+  input[type=range]::-webkit-slider-thumb {
+    -webkit-appearance: none;
+    width: 18px; height: 18px;
+    background: var(--neon);
+    border-radius: 50%;
+    cursor: pointer;
+    box-shadow: 0 0 10px rgba(0,255,231,0.6);
+    transition: box-shadow 0.2s;
+  }
+
+  input[type=range]::-webkit-slider-thumb:hover {
+    box-shadow: 0 0 20px rgba(0,255,231,0.9);
+  }
+
+  /* Table */
+  .data-table { width: 100%; border-collapse: collapse; font-size: 0.78rem; }
+  .data-table th {
+    background: rgba(0,255,231,0.05);
+    color: var(--neon);
+    padding: 0.6rem 0.8rem;
+    text-align: left;
+    font-size: 0.65rem;
+    letter-spacing: 0.15em;
+    text-transform: uppercase;
+    border-bottom: 1px solid var(--border);
+  }
+  .data-table td {
+    padding: 0.5rem 0.8rem;
+    border-bottom: 1px solid rgba(26,58,92,0.3);
+    color: var(--text);
+    font-size: 0.78rem;
+  }
+  .data-table tr:hover td { background: rgba(0,255,231,0.02); }
+
+  /* Wildcard / misc badges */
+  .badge {
+    display: inline-block;
+    padding: 2px 8px;
+    border-radius: 2px;
+    font-size: 0.65rem;
+    letter-spacing: 0.1em;
+    font-weight: 700;
+  }
+  .badge-green { background: rgba(0,255,100,0.1); color: #00ff64; border: 1px solid rgba(0,255,100,0.3); }
+  .badge-red { background: rgba(255,45,120,0.1); color: var(--neon2); border: 1px solid rgba(255,45,120,0.3); }
+  .badge-yellow { background: rgba(255,230,0,0.1); color: var(--neon3); border: 1px solid rgba(255,230,0,0.3); }
+
+  /* Toast */
+  #toast {
+    position: fixed;
+    bottom: 2rem; right: 2rem;
+    background: var(--card);
+    border: 1px solid var(--neon);
+    color: var(--neon);
+    padding: 0.75rem 1.5rem;
+    font-size: 0.8rem;
+    border-radius: 3px;
+    box-shadow: 0 0 20px rgba(0,255,231,0.3);
+    z-index: 999;
+    transform: translateY(100px);
+    opacity: 0;
+    transition: all 0.3s;
+  }
+  #toast.show { transform: translateY(0); opacity: 1; }
+
+  /* Tab panels */
+  .tab-panel { display: none; }
+  .tab-panel.active { display: block; }
+
+  /* Pulse dot */
+  .pulse-dot {
+    width: 8px; height: 8px;
+    background: var(--neon);
+    border-radius: 50%;
+    box-shadow: 0 0 6px var(--neon);
+    animation: pulse 2s infinite;
+    display: inline-block;
+  }
+  @keyframes pulse { 0%,100%{opacity:1;} 50%{opacity:0.3;} }
+
+  /* Section labels */
+  .section-label {
+    font-family: 'Orbitron', monospace;
+    font-size: 0.6rem;
+    letter-spacing: 0.3em;
+    color: var(--dim);
+    text-transform: uppercase;
+    margin-bottom: 0.5rem;
+  }
+
+  /* Highlight animation for results */
+  .highlight-in {
+    animation: highlightPop 0.4s ease;
+  }
+  @keyframes highlightPop {
+    0% { background: rgba(0,255,231,0.15); }
+    100% { background: transparent; }
+  }
+
+  /* Scrollbar */
+  ::-webkit-scrollbar { width: 5px; height: 5px; }
+  ::-webkit-scrollbar-track { background: var(--bg2); }
+  ::-webkit-scrollbar-thumb { background: var(--border); border-radius: 2px; }
+  ::-webkit-scrollbar-thumb:hover { background: var(--dim); }
+
+  /* Mobile responsive */
+  @media (max-width: 768px) {
+    .logo { font-size: 1.3rem; }
+    .bit { width: 16px; height: 22px; font-size: 0.7rem; }
+    .binary-label { min-width: 80px; font-size: 0.65rem; }
+  }
+</style>
+</head>
+<body>
+
+<div class="container">
+  <!-- Header -->
+  <header class="flex items-center justify-between flex-wrap gap-4">
+    <div>
+      <div class="logo">NET<span>SLICER</span></div>
+      <div class="tagline"><span class="pulse-dot"></span> &nbsp;Advanced Subnet Calculator &amp; Network Toolkit</div>
+    </div>
+    <div class="text-right">
+      <div style="font-size:0.65rem;color:var(--dim);letter-spacing:0.2em;">IPv4 TOOLKIT v2.0</div>
+      <div id="clock" style="font-family:'Orbitron',monospace;font-size:0.85rem;color:var(--neon);margin-top:0.2rem;"></div>
+    </div>
+  </header>
+
+  <!-- Tabs -->
+  <div class="tab-bar">
+    <button class="tab-btn active" onclick="switchTab('subnet')">⬡ Subnet Calc</button>
+    <button class="tab-btn" onclick="switchTab('binary')">⬡ Binary View</button>
+    <button class="tab-btn" onclick="switchTab('wildcard')">⬡ Wildcard</button>
+    <button class="tab-btn" onclick="switchTab('supernet')">⬡ Supernetting</button>
+    <button class="tab-btn" onclick="switchTab('cidr')">⬡ CIDR Table</button>
+    <button class="tab-btn" onclick="switchTab('vlsm')">⬡ VLSM</button>
+  </div>
+
+  <!-- MAIN CONTENT -->
+  <div class="p-4 md:p-6 max-w-7xl mx-auto">
+
+    <!-- ==================== SUBNET CALCULATOR ==================== -->
+    <div id="tab-subnet" class="tab-panel active">
+      <div class="grid grid-cols-1 lg:grid-cols-3 gap-4">
+
+        <!-- Input Panel -->
+        <div class="card">
+          <div class="card-title">⬡ Input</div>
+          <div class="p-4 space-y-4">
+            <div>
+              <div class="section-label">IP Address</div>
+              <input id="ipInput" class="neon-input" type="text" placeholder="192.168.1.100" value="192.168.1.100">
+            </div>
+            <div>
+              <div class="section-label">CIDR / Subnet Mask</div>
+              <div class="flex gap-2">
+                <input id="cidrInput" class="neon-input" type="text" placeholder="/24 or 255.255.255.0" value="/24" style="flex:1">
+              </div>
+            </div>
+            <div>
+              <div class="section-label" id="cidrSliderLabel">CIDR: /24</div>
+              <input type="range" id="cidrSlider" min="1" max="32" value="24">
+              <div class="flex justify-between mt-1" style="font-size:0.6rem;color:var(--dim);">
+                <span>/1</span><span>/8</span><span>/16</span><span>/24</span><span>/32</span>
+              </div>
+            </div>
+            <button class="btn-primary w-full" onclick="calculate()">CALCULATE ›</button>
+            <button class="btn-secondary w-full" onclick="loadExample()">LOAD EXAMPLE</button>
+          </div>
+        </div>
+
+        <!-- Results Panel -->
+        <div class="card lg:col-span-2">
+          <div class="card-title">⬡ Results</div>
+          <div id="results" class="p-4">
+            <div style="color:var(--dim);text-align:center;padding:2rem;font-size:0.8rem;">
+              Enter an IP address and calculate to see results
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Visual Bar + Steps -->
+      <div id="visualSection" class="mt-4 hidden">
+        <div class="grid grid-cols-1 lg:grid-cols-2 gap-4">
+          <div class="card">
+            <div class="card-title">⬡ Network / Host Split</div>
+            <div class="p-4">
+              <div class="flex justify-between mb-2" style="font-size:0.7rem;">
+                <span style="color:var(--neon);">■ Network Bits: <span id="barNetBits"></span></span>
+                <span style="color:var(--neon2);">■ Host Bits: <span id="barHostBits"></span></span>
+              </div>
+              <div class="ip-bar mb-3" id="ipBar">
+                <div class="ip-bar-network" id="barNetwork"></div>
+                <div class="ip-bar-host" id="barHost"></div>
+              </div>
+              <div class="space-y-2 mt-3" id="quickStats"></div>
+            </div>
+          </div>
+          <div class="card">
+            <div class="card-title">⬡ Calculation Steps</div>
+            <div class="p-4 overflow-auto" style="max-height:280px;" id="stepsPanel"></div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ==================== BINARY VIEW ==================== -->
+    <div id="tab-binary" class="tab-panel">
+      <div class="card mb-4">
+        <div class="card-title">⬡ Binary Breakdown — Visual Bit Analyzer</div>
+        <div class="p-4 space-y-4">
+          <div class="flex gap-3 flex-wrap">
+            <input id="binIpInput" class="neon-input" type="text" placeholder="192.168.1.100" style="flex:1;min-width:160px">
+            <input id="binCidrInput" class="neon-input" type="text" placeholder="/24" style="width:100px">
+            <button class="btn-primary" onclick="updateBinary()">ANALYZE</button>
+          </div>
+          <div id="binaryDisplay" style="overflow-x:auto;"></div>
+        </div>
+      </div>
+      <div class="card">
+        <div class="card-title">⬡ IP Converter</div>
+        <div class="p-4">
+          <div class="grid grid-cols-1 md:grid-cols-3 gap-3 mb-3">
+            <div>
+              <div class="section-label">Decimal (dotted)</div>
+              <input id="convDec" class="neon-input" placeholder="192.168.1.1" oninput="convertFrom('dec')">
+            </div>
+            <div>
+              <div class="section-label">Binary</div>
+              <input id="convBin" class="neon-input" placeholder="11000000.10101000.00000001.00000001" oninput="convertFrom('bin')" style="font-size:0.65rem;">
+            </div>
+            <div>
+              <div class="section-label">Hexadecimal</div>
+              <input id="convHex" class="neon-input" placeholder="C0.A8.01.01" oninput="convertFrom('hex')">
+            </div>
+          </div>
+          <div id="convResult" style="font-size:0.75rem;color:var(--dim);"></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ==================== WILDCARD ==================== -->
+    <div id="tab-wildcard" class="tab-panel">
+      <div class="grid grid-cols-1 lg:grid-cols-2 gap-4">
+        <div class="card">
+          <div class="card-title">⬡ Wildcard Mask Calculator</div>
+          <div class="p-4 space-y-4">
+            <div>
+              <div class="section-label">Subnet Mask or CIDR</div>
+              <input id="wcInput" class="neon-input" placeholder="255.255.255.0 or /24" value="255.255.255.0">
+            </div>
+            <button class="btn-primary" onclick="calcWildcard()">COMPUTE</button>
+            <div id="wcResults"></div>
+          </div>
+        </div>
+        <div class="card">
+          <div class="card-title">⬡ Subnet Class Detector</div>
+          <div class="p-4 space-y-4">
+            <div>
+              <div class="section-label">IP Address</div>
+              <input id="classInput" class="neon-input" placeholder="10.0.0.1" value="192.168.1.1">
+            </div>
+            <button class="btn-primary" onclick="detectClass()">DETECT</button>
+            <div id="classResults"></div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ==================== SUPERNETTING ==================== -->
+    <div id="tab-supernet" class="tab-panel">
+      <div class="card mb-4">
+        <div class="card-title">⬡ Supernet (Route Summarization) Calculator</div>
+        <div class="p-4">
+          <div class="section-label">Enter networks (one per line, e.g. 192.168.0.0/24)</div>
+          <textarea id="supernetInput" class="neon-input" rows="5" placeholder="192.168.0.0/24&#10;192.168.1.0/24&#10;192.168.2.0/24&#10;192.168.3.0/24" style="resize:vertical;line-height:1.8;">192.168.0.0/24
+192.168.1.0/24
+192.168.2.0/24
+192.168.3.0/24</textarea>
+          <div class="flex gap-3 mt-3 flex-wrap">
+            <button class="btn-primary" onclick="calcSupernet()">SUMMARIZE ROUTES</button>
+          </div>
+          <div id="supernetResult" class="mt-4"></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ==================== CIDR TABLE ==================== -->
+    <div id="tab-cidr" class="tab-panel">
+      <div class="card">
+        <div class="card-title">⬡ CIDR Reference Table — /1 to /32</div>
+        <div class="p-4" style="overflow-x:auto;">
+          <table class="data-table" id="cidrTable"></table>
+        </div>
+      </div>
+    </div>
+
+    <!-- ==================== VLSM ==================== -->
+    <div id="tab-vlsm" class="tab-panel">
+      <div class="card mb-4">
+        <div class="card-title">⬡ VLSM — Variable Length Subnet Masking</div>
+        <div class="p-4 space-y-4">
+          <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
+            <div>
+              <div class="section-label">Base Network</div>
+              <input id="vlsmBase" class="neon-input" placeholder="192.168.1.0/24" value="192.168.1.0/24">
+            </div>
+            <div>
+              <div class="section-label">Subnet Requirements (hosts, comma-separated)</div>
+              <input id="vlsmHosts" class="neon-input" placeholder="50, 25, 10, 5" value="50, 25, 10, 5">
+            </div>
+          </div>
+          <button class="btn-primary" onclick="calcVLSM()">GENERATE VLSM SUBNETS</button>
+          <div id="vlsmResult"></div>
+        </div>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+<div id="toast"></div>
+
+<script>
+// ==================== UTILITIES ====================
+function ipToNum(ip) {
+  return ip.split('.').reduce((acc, o) => (acc << 8) + parseInt(o), 0) >>> 0;
+}
+
+function numToIp(num) {
+  return [(num >>> 24) & 255, (num >>> 16) & 255, (num >>> 8) & 255, num & 255].join('.');
+}
+
+function cidrToMask(cidr) {
+  return cidr === 0 ? 0 : (0xFFFFFFFF << (32 - cidr)) >>> 0;
+}
+
+function maskToCidr(mask) {
+  let bits = 0;
+  for (let i = 31; i >= 0; i--) { if (mask & (1 << i)) bits++; else break; }
+  return bits;
+}
+
+function ipToBinary(ip) {
+  return ip.split('.').map(o => parseInt(o).toString(2).padStart(8, '0')).join('.');
+}
+
+function toBin32(num) {
+  return (num >>> 0).toString(2).padStart(32, '0');
+}
+
+function parseCidrInput(val) {
+  val = val.trim();
+  if (val.startsWith('/')) return parseInt(val.slice(1));
+  if (val.includes('.')) {
+    const num = ipToNum(val);
+    return maskToCidr(num);
+  }
+  return parseInt(val);
+}
+
+function isValidIP(ip) {
+  const parts = ip.split('.');
+  if (parts.length !== 4) return false;
+  return parts.every(p => { const n = parseInt(p); return !isNaN(n) && n >= 0 && n <= 255; });
+}
+
+function showToast(msg) {
+  const t = document.getElementById('toast');
+  t.textContent = msg;
+  t.classList.add('show');
+  setTimeout(() => t.classList.remove('show'), 2500);
+}
+
+function copyVal(val) {
+  navigator.clipboard.writeText(val).then(() => showToast('Copied: ' + val));
+}
+
+// ==================== CLOCK ====================
+function updateClock() {
+  const now = new Date();
+  document.getElementById('clock').textContent =
+    now.toISOString().replace('T', ' ').substring(0, 19) + ' UTC';
+}
+setInterval(updateClock, 1000); updateClock();
+
+// ==================== SLIDER ====================
+const slider = document.getElementById('cidrSlider');
+slider.addEventListener('input', function() {
+  document.getElementById('cidrSliderLabel').textContent = 'CIDR: /' + this.value;
+  document.getElementById('cidrInput').value = '/' + this.value;
+});
+
+document.getElementById('cidrInput').addEventListener('input', function() {
+  const c = parseCidrInput(this.value);
+  if (!isNaN(c) && c >= 1 && c <= 32) {
+    slider.value = c;
+    document.getElementById('cidrSliderLabel').textContent = 'CIDR: /' + c;
+  }
+});
+
+// ==================== MAIN CALCULATOR ====================
+function calculate() {
+  const ipRaw = document.getElementById('ipInput').value.trim();
+  const cidrRaw = document.getElementById('cidrInput').value.trim();
+
+  let ip = ipRaw, cidr;
+
+  // Support IP/CIDR in same field
+  if (ip.includes('/')) {
+    const parts = ip.split('/');
+    ip = parts[0].trim();
+    cidr = parseInt(parts[1]);
+  } else {
+    cidr = parseCidrInput(cidrRaw);
+  }
+
+  if (!isValidIP(ip)) { showToast('Invalid IP address'); return; }
+  if (isNaN(cidr) || cidr < 0 || cidr > 32) { showToast('Invalid CIDR (0-32)'); return; }
+
+  const mask = cidrToMask(cidr);
+  const ipNum = ipToNum(ip);
+  const networkNum = (ipNum & mask) >>> 0;
+  const broadcastNum = (networkNum | (~mask >>> 0)) >>> 0;
+  const firstHost = cidr === 32 ? networkNum : networkNum + 1;
+  const lastHost = cidr === 32 ? networkNum : (cidr === 31 ? broadcastNum : broadcastNum - 1);
+  const totalHosts = cidr >= 31 ? Math.pow(2, 32 - cidr) : Math.pow(2, 32 - cidr) - 2;
+  const blockSize = Math.pow(2, 32 - cidr);
+  const wildcardNum = (~mask) >>> 0;
+
+  // Determine subnet class
+  const first = (ipNum >>> 24) & 255;
+  let ipClass = first < 128 ? 'A' : first < 192 ? 'B' : first < 224 ? 'C' : first < 240 ? 'D' : 'E';
+  const isPrivate = (first === 10) ||
+    (first === 172 && ((ipNum >>> 16 & 255) >= 16 && (ipNum >>> 16 & 255) <= 31)) ||
+    (first === 192 && ((ipNum >>> 16 & 255) === 168));
+  const isLoopback = first === 127;
+  const isAPIPARange = first === 169 && ((ipNum >>> 16) & 255) === 254;
+
+  // Build results HTML
+  const rows = [
+    ['IP Address', ip, 'neon'],
+    ['Network Address', numToIp(networkNum), 'yellow'],
+    ['Broadcast Address', numToIp(broadcastNum), 'pink'],
+    ['First Usable Host', cidr >= 31 ? numToIp(networkNum) : numToIp(firstHost), 'neon'],
+    ['Last Usable Host', cidr >= 31 ? numToIp(broadcastNum) : numToIp(lastHost), 'neon'],
+    ['Subnet Mask', numToIp(mask), 'yellow'],
+    ['Wildcard Mask', numToIp(wildcardNum), 'pink'],
+    ['CIDR Notation', '/' + cidr, 'neon'],
+    ['Block Size', blockSize.toLocaleString(), 'yellow'],
+    ['Total Hosts', blockSize.toLocaleString(), 'neon'],
+    ['Usable Hosts', cidr >= 31 ? totalHosts.toLocaleString() : totalHosts.toLocaleString(), 'neon'],
+    ['IP Class', ipClass, 'yellow'],
+    ['IP Type', isLoopback ? 'Loopback' : isAPIPARange ? 'APIPA / Link-Local' : isPrivate ? 'Private' : 'Public', isPrivate || isLoopback ? 'pink' : 'neon'],
+  ];
+
+  let html = '<div class="grid grid-cols-1 sm:grid-cols-2 gap-0">';
+  rows.forEach(([label, val, cls]) => {
+    html += `<div class="result-row highlight-in" onclick="copyVal('${val}')">
+      <span class="result-label">${label}</span>
+      <span class="result-value ${cls === 'pink' ? 'pink' : cls === 'yellow' ? 'yellow' : ''}" title="Click to copy">${val}</span>
+    </div>`;
+  });
+  html += '</div>';
+  html += `<div style="font-size:0.62rem;color:var(--dim);padding:0.5rem 1rem;">↑ Click any value to copy</div>`;
+
+  document.getElementById('results').innerHTML = html;
+
+  // Visual bar
+  const pct = (cidr / 32) * 100;
+  document.getElementById('barNetwork').style.width = pct + '%';
+  document.getElementById('barHost').style.width = (100 - pct) + '%';
+  document.getElementById('barNetBits').textContent = cidr;
+  document.getElementById('barHostBits').textContent = 32 - cidr;
+
+  // Quick stats
+  document.getElementById('quickStats').innerHTML = `
+    <div class="result-row"><span class="result-label">Binary Mask</span><span class="result-value" style="font-size:0.7rem;">${toBin32(mask).match(/.{8}/g).join('.')}</span></div>
+    <div class="result-row"><span class="result-label">Hex Network</span><span class="result-value yellow">0x${networkNum.toString(16).toUpperCase().padStart(8,'0')}</span></div>
+    <div class="result-row"><span class="result-label">Integer Range</span><span class="result-value" style="font-size:0.7rem;">${networkNum} — ${broadcastNum}</span></div>
+  `;
+
+  document.getElementById('visualSection').classList.remove('hidden');
+
+  // Build steps
+  buildSteps(ip, cidr, mask, networkNum, broadcastNum, ipNum, wildcardNum, firstHost, lastHost, blockSize, totalHosts);
+
+  // Sync to binary tab
+  document.getElementById('binIpInput').value = ip;
+  document.getElementById('binCidrInput').value = '/' + cidr;
+}
+
+function buildSteps(ip, cidr, mask, networkNum, broadcastNum, ipNum, wildcardNum, firstHost, lastHost, blockSize, totalHosts) {
+  const steps = [
+    {
+      title: 'Convert IP to Binary',
+      body: `IP: <code>${ip}</code><br>
+Binary: <code>${ipToBinary(ip)}</code><br>
+Each octet (0–255) is represented as 8 bits.`
+    },
+    {
+      title: 'Determine Subnet Mask from CIDR /' + cidr,
+      body: `CIDR /<code>${cidr}</code> means the first <code>${cidr}</code> bits are 1 (network), the remaining <code>${32 - cidr}</code> bits are 0 (host).<br>
+Mask Binary: <code>${toBin32(mask).match(/.{8}/g).join('.')}</code><br>
+Mask Dotted: <code>${numToIp(mask)}</code>`
+    },
+    {
+      title: 'Find Network Address (AND operation)',
+      body: `IP &nbsp;&nbsp;: <code>${toBin32(ipNum).match(/.{8}/g).join('.')}</code><br>
+AND Mask: <code>${toBin32(mask).match(/.{8}/g).join('.')}</code><br>
+= Network: <code>${toBin32(networkNum).match(/.{8}/g).join('.')}</code> → <code>${numToIp(networkNum)}</code>`
+    },
+    {
+      title: 'Find Wildcard Mask (NOT of subnet mask)',
+      body: `Mask:     <code>${toBin32(mask).match(/.{8}/g).join('.')}</code><br>
+NOT Mask: <code>${toBin32(wildcardNum).match(/.{8}/g).join('.')}</code><br>
+Wildcard: <code>${numToIp(wildcardNum)}</code>`
+    },
+    {
+      title: 'Find Broadcast Address (OR with wildcard)',
+      body: `Network: <code>${toBin32(networkNum).match(/.{8}/g).join('.')}</code><br>
+OR Wild:  <code>${toBin32(wildcardNum).match(/.{8}/g).join('.')}</code><br>
+= Bcast:  <code>${toBin32(broadcastNum).match(/.{8}/g).join('.')}</code> → <code>${numToIp(broadcastNum)}</code>`
+    },
+    {
+      title: 'Calculate Block Size and Usable Hosts',
+      body: `Block size = 2^(32-${cidr}) = 2^<code>${32 - cidr}</code> = <code>${blockSize.toLocaleString()}</code><br>
+Usable Hosts = Block Size - 2 = <code>${Math.max(0, blockSize - 2).toLocaleString()}</code> (subtract network + broadcast)<br>
+First Host: <code>${numToIp(firstHost)}</code> (Network + 1)<br>
+Last Host: <code>${numToIp(lastHost)}</code> (Broadcast - 1)`
+    }
+  ];
+
+  let html = '';
+  steps.forEach((s, i) => {
+    html += `<div class="step-item" style="animation-delay:${i * 0.08}s">
+      <div class="step-number">${i + 1}</div>
+      <div class="step-title">${s.title}</div>
+      <div class="step-body">${s.body}</div>
+    </div>`;
+  });
+
+  document.getElementById('stepsPanel').innerHTML = html;
+}
+
+function loadExample() {
+  const examples = [
+    ['10.0.0.1', '/8'],
+    ['172.16.50.200', '/20'],
+    ['192.168.100.50', '/26'],
+    ['203.0.113.45', '/28'],
+    ['10.10.10.10', '/22'],
+  ];
+  const ex = examples[Math.floor(Math.random() * examples.length)];
+  document.getElementById('ipInput').value = ex[0];
+  document.getElementById('cidrInput').value = ex[1];
+  const c = parseInt(ex[1].slice(1));
+  slider.value = c;
+  document.getElementById('cidrSliderLabel').textContent = 'CIDR: ' + ex[1];
+  calculate();
+}
+
+// ==================== BINARY VIEW ====================
+function updateBinary() {
+  const ip = document.getElementById('binIpInput').value.trim();
+  const cidrRaw = document.getElementById('binCidrInput').value.trim();
+  if (!isValidIP(ip)) { showToast('Invalid IP'); return; }
+  const cidr = parseCidrInput(cidrRaw);
+  if (isNaN(cidr) || cidr < 0 || cidr > 32) { showToast('Invalid CIDR'); return; }
+
+  const mask = cidrToMask(cidr);
+  const ipNum = ipToNum(ip);
+  const networkNum = (ipNum & mask) >>> 0;
+  const broadcastNum = (networkNum | (~mask >>> 0)) >>> 0;
+  const wildcardNum = (~mask) >>> 0;
+
+  const rows = [
+    { label: 'IP Address', num: ipNum, type: 'ip' },
+    { label: 'Subnet Mask', num: mask, type: 'mask' },
+    { label: 'Wildcard', num: wildcardNum, type: 'wild' },
+    { label: 'Network Addr', num: networkNum, type: 'net' },
+    { label: 'Broadcast', num: broadcastNum, type: 'bcast' },
+  ];
+
+  const mask32 = toBin32(mask);
+
+  let html = `<div style="overflow-x:auto;padding-bottom:0.5rem;">`;
+
+  // Legend
+  html += `<div class="flex gap-3 mb-4 flex-wrap" style="font-size:0.65rem;">
+    <span><span class="bit bit-network" style="display:inline-flex;width:14px;height:14px;margin-right:3px;border-radius:2px;vertical-align:middle;"></span> Network bit (1)</span>
+    <span><span class="bit bit-host" style="display:inline-flex;width:14px;height:14px;margin-right:3px;border-radius:2px;vertical-align:middle;"></span> Host bit (0-zone)</span>
+    <span style="color:var(--dim);">Dots separate octets</span>
+  </div>`;
+
+  rows.forEach(row => {
+    const bin = toBin32(row.num);
+    html += `<div class="binary-row flex-wrap" style="margin-bottom:0.6rem;">
+      <span class="binary-label">${row.label}</span>
+      <div class="bit-group flex-wrap">`;
+
+    for (let i = 0; i < 32; i++) {
+      if (i > 0 && i % 8 === 0) html += `<span class="bit-dot">.</span>`;
+      const b = bin[i];
+      const isNetBit = i < cidr;
+      let cls = '';
+      if (row.type === 'ip') {
+        cls = isNetBit ? 'bit-network' : 'bit-host';
+      } else if (row.type === 'mask') {
+        cls = b === '1' ? 'bit-network' : 'bit-host';
+      } else if (row.type === 'net') {
+        cls = isNetBit ? 'bit-network' : 'bit-0';
+      }
+      html += `<span class="bit ${b === '1' ? 'bit-1' : 'bit-0'} ${cls}" title="bit ${i}">${b}</span>`;
+    }
+
+    html += `</div>
+      <span style="margin-left:0.5rem;color:var(--dim);font-size:0.7rem;">= ${numToIp(row.num)}</span>
+    </div>`;
+  });
+
+  // CIDR boundary marker
+  html += `<div style="margin-top:1rem;border-top:1px solid var(--border);padding-top:0.75rem;">
+    <div style="font-size:0.7rem;color:var(--dim);">
+      Network boundary at bit <span style="color:var(--neon);">${cidr}</span> |
+      Network bits: <span style="color:var(--neon);">${cidr}</span> |
+      Host bits: <span style="color:var(--neon2);">${32 - cidr}</span>
+    </div>
+  </div>`;
+
+  html += `</div>`;
+  document.getElementById('binaryDisplay').innerHTML = html;
+}
+
+// IP Converter
+function convertFrom(source) {
+  try {
+    let num;
+    if (source === 'dec') {
+      const v = document.getElementById('convDec').value.trim();
+      if (!isValidIP(v)) return;
+      num = ipToNum(v);
+      document.getElementById('convBin').value = toBin32(num).match(/.{8}/g).join('.');
+      document.getElementById('convHex').value = v.split('.').map(o => parseInt(o).toString(16).toUpperCase().padStart(2,'0')).join('.');
+    } else if (source === 'bin') {
+      const v = document.getElementById('convBin').value.replace(/\./g,'').replace(/\s/g,'');
+      if (v.length !== 32 || !/^[01]+$/.test(v)) return;
+      num = parseInt(v, 2) >>> 0;
+      document.getElementById('convDec').value = numToIp(num);
+      document.getElementById('convHex').value = numToIp(num).split('.').map(o => parseInt(o).toString(16).toUpperCase().padStart(2,'0')).join('.');
+    } else {
+      const v = document.getElementById('convHex').value.replace(/\./g,'').replace(/\s/g,'').replace(/^0x/i,'');
+      if (v.length !== 8) return;
+      num = parseInt(v, 16) >>> 0;
+      document.getElementById('convDec').value = numToIp(num);
+      document.getElementById('convBin').value = toBin32(num).match(/.{8}/g).join('.');
+    }
+    document.getElementById('convResult').innerHTML = `
+      <span style="color:var(--neon);">Integer: ${num}</span> &nbsp;|&nbsp;
+      <span style="color:var(--neon3);">Hex: 0x${num.toString(16).toUpperCase().padStart(8,'0')}</span> &nbsp;|&nbsp;
+      <span style="color:var(--neon2);">Decimal: ${num}</span>`;
+  } catch(e) {}
+}
+
+// ==================== WILDCARD ====================
+function calcWildcard() {
+  const val = document.getElementById('wcInput').value.trim();
+  let cidr, mask, wildcard;
+
+  if (val.startsWith('/')) {
+    cidr = parseInt(val.slice(1));
+    mask = cidrToMask(cidr);
+  } else if (val.includes('.')) {
+    mask = ipToNum(val);
+    cidr = maskToCidr(mask);
+  } else {
+    cidr = parseInt(val);
+    mask = cidrToMask(cidr);
+  }
+
+  wildcard = (~mask) >>> 0;
+
+  document.getElementById('wcResults').innerHTML = `
+    <div class="mt-3 space-y-0">
+      <div class="result-row"><span class="result-label">Subnet Mask</span><span class="result-value" onclick="copyVal('${numToIp(mask)}')">${numToIp(mask)}</span></div>
+      <div class="result-row"><span class="result-label">Wildcard Mask</span><span class="result-value pink" onclick="copyVal('${numToIp(wildcard)}')">${numToIp(wildcard)}</span></div>
+      <div class="result-row"><span class="result-label">CIDR</span><span class="result-value yellow">/${cidr}</span></div>
+      <div class="result-row"><span class="result-label">Mask Binary</span><span class="result-value" style="font-size:0.65rem;">${toBin32(mask).match(/.{8}/g).join('.')}</span></div>
+      <div class="result-row"><span class="result-label">Wildcard Binary</span><span class="result-value pink" style="font-size:0.65rem;">${toBin32(wildcard).match(/.{8}/g).join('.')}</span></div>
+      <div class="result-row"><span class="result-label">ACL Use Example</span><span class="result-value" style="font-size:0.72rem;">access-list 1 permit 0.0.0.0 ${numToIp(wildcard)}</span></div>
+    </div>`;
+}
+
+// ==================== CLASS DETECTOR ====================
+function detectClass() {
+  const ip = document.getElementById('classInput').value.trim();
+  if (!isValidIP(ip)) { showToast('Invalid IP'); return; }
+
+  const num = ipToNum(ip);
+  const first = (num >>> 24) & 255;
+
+  let cls, range, defMask, note;
+  if (first < 128) { cls = 'A'; range = '0.0.0.0 – 127.255.255.255'; defMask = '255.0.0.0 (/8)'; }
+  else if (first < 192) { cls = 'B'; range = '128.0.0.0 – 191.255.255.255'; defMask = '255.255.0.0 (/16)'; }
+  else if (first < 224) { cls = 'C'; range = '192.0.0.0 – 223.255.255.255'; defMask = '255.255.255.0 (/24)'; }
+  else if (first < 240) { cls = 'D'; range = '224.0.0.0 – 239.255.255.255'; defMask = 'N/A (Multicast)'; }
+  else { cls = 'E'; range = '240.0.0.0 – 255.255.255.255'; defMask = 'N/A (Reserved)'; }
+
+  const isPrivate = (first === 10) ||
+    (first === 172 && (((num >>> 16) & 255) >= 16 && ((num >>> 16) & 255) <= 31)) ||
+    (first === 192 && ((num >>> 16 & 255) === 168));
+  const isLoopback = first === 127;
+  const isAPIPARange = first === 169 && ((num >>> 16) & 255) === 254;
+  const isBroadcast = ip === '255.255.255.255';
+
+  let typeLabel = 'Public';
+  let typeBadge = 'badge-green';
+  if (isBroadcast) { typeLabel = 'Limited Broadcast'; typeBadge = 'badge-red'; }
+  else if (isLoopback) { typeLabel = 'Loopback'; typeBadge = 'badge-yellow'; }
+  else if (isAPIPARange) { typeLabel = 'APIPA / Link-Local'; typeBadge = 'badge-yellow'; }
+  else if (isPrivate) { typeLabel = 'Private (RFC 1918)'; typeBadge = 'badge-yellow'; }
+
+  document.getElementById('classResults').innerHTML = `
+    <div class="mt-3 space-y-0">
+      <div class="result-row"><span class="result-label">IP Class</span><span class="result-value yellow" style="font-size:1.5rem;font-family:'Orbitron',monospace;">Class ${cls}</span></div>
+      <div class="result-row"><span class="result-label">Address Range</span><span class="result-value" style="font-size:0.75rem;">${range}</span></div>
+      <div class="result-row"><span class="result-label">Default Mask</span><span class="result-value">${defMask}</span></div>
+      <div class="result-row"><span class="result-label">Address Type</span><span class="result-value"><span class="badge ${typeBadge}">${typeLabel}</span></span></div>
+      <div class="result-row"><span class="result-label">Integer Value</span><span class="result-value">${num}</span></div>
+      <div class="result-row"><span class="result-label">Hex</span><span class="result-value yellow">0x${num.toString(16).toUpperCase().padStart(8,'0')}</span></div>
+    </div>`;
+}
+
+// ==================== SUPERNET ====================
+function calcSupernet() {
+  const lines = document.getElementById('supernetInput').value.trim().split('\n').filter(l => l.trim());
+  const networks = [];
+
+  for (const line of lines) {
+    const parts = line.trim().split('/');
+    if (parts.length !== 2 || !isValidIP(parts[0].trim())) continue;
+    const cidr = parseInt(parts[1]);
+    const num = ipToNum(parts[0].trim());
+    const mask = cidrToMask(cidr);
+    const networkNum = (num & mask) >>> 0;
+    networks.push({ ip: parts[0].trim(), cidr, networkNum, mask });
+  }
+
+  if (networks.length < 2) { showToast('Enter at least 2 networks'); return; }
+
+  // Find common prefix
+  const nums = networks.map(n => n.networkNum);
+  let commonBits = 32;
+  for (let i = 1; i < nums.length; i++) {
+    const xor = (nums[0] ^ nums[i]) >>> 0;
+    const leading = 32 - Math.floor(Math.log2(xor || 1)) - 1;
+    commonBits = Math.min(commonBits, xor === 0 ? 32 : leading);
+  }
+
+  // Adjust: find actual common bits
+  let cb = 0;
+  for (let b = 31; b >= 0; b--) {
+    const bit = 1 << b;
+    if (nums.every(n => (n & bit) === (nums[0] & bit))) cb++;
+    else break;
+  }
+
+  const superMask = cidrToMask(cb);
+  const superNetwork = (nums[0] & superMask) >>> 0;
+  const superBroadcast = (superNetwork | (~superMask >>> 0)) >>> 0;
+
+  let html = `
+    <div class="card mt-2">
+      <div class="card-title">⬡ Summary Route</div>
+      <div class="p-4">
+        <div style="font-family:'Orbitron',monospace;font-size:1.2rem;color:var(--neon);text-shadow:0 0 15px rgba(0,255,231,0.6);margin-bottom:1rem;">
+          ${numToIp(superNetwork)}/${cb}
+        </div>
+        <div class="result-row"><span class="result-label">Supernet Address</span><span class="result-value yellow">${numToIp(superNetwork)}</span></div>
+        <div class="result-row"><span class="result-label">Supernet Mask</span><span class="result-value">${numToIp(superMask)}</span></div>
+        <div class="result-row"><span class="result-label">CIDR</span><span class="result-value">/${cb}</span></div>
+        <div class="result-row"><span class="result-label">Broadcast</span><span class="result-value pink">${numToIp(superBroadcast)}</span></div>
+        <div class="result-row"><span class="result-label">Networks Summarized</span><span class="result-value yellow">${networks.length}</span></div>
+        <div class="result-row"><span class="result-label">Common Bits</span><span class="result-value">${cb}</span></div>
+      </div>
+    </div>
+    <div class="card mt-2">
+      <div class="card-title">⬡ Input Networks</div>
+      <div class="p-2" style="overflow-x:auto;">
+        <table class="data-table">
+          <thead><tr><th>Network</th><th>CIDR</th><th>Mask</th><th>Binary (first 24 bits)</th></tr></thead>
+          <tbody>`;
+
+  for (const n of networks) {
+    html += `<tr>
+      <td style="color:var(--neon)">${n.ip}</td>
+      <td>/${n.cidr}</td>
+      <td>${numToIp(n.mask)}</td>
+      <td style="font-size:0.65rem;letter-spacing:0.05em;">${toBin32(n.networkNum).substring(0, 24)}...</td>
+    </tr>`;
+  }
+
+  html += `</tbody></table></div></div>`;
+  document.getElementById('supernetResult').innerHTML = html;
+}
+
+// ==================== CIDR TABLE ====================
+function buildCIDRTable() {
+  let html = `<thead><tr>
+    <th>CIDR</th><th>Subnet Mask</th><th>Wildcard</th><th>Block Size</th><th>Usable Hosts</th><th>Addresses</th>
+  </tr></thead><tbody>`;
+
+  for (let cidr = 1; cidr <= 32; cidr++) {
+    const mask = cidrToMask(cidr);
+    const wild = (~mask) >>> 0;
+    const block = Math.pow(2, 32 - cidr);
+    const usable = cidr >= 31 ? block : block - 2;
+    const highlight = [8,16,24].includes(cidr) ? 'style="background:rgba(0,255,231,0.04)"' : '';
+    html += `<tr ${highlight}>
+      <td style="color:var(--neon);font-weight:700;">/${cidr}</td>
+      <td>${numToIp(mask)}</td>
+      <td style="color:var(--neon2)">${numToIp(wild)}</td>
+      <td style="color:var(--neon3)">${block.toLocaleString()}</td>
+      <td style="color:var(--neon)">${usable.toLocaleString()}</td>
+      <td style="color:var(--dim);font-size:0.7rem;">${block >= 1000000 ? (block/1000000).toFixed(1)+'M' : block >= 1000 ? (block/1000).toFixed(1)+'K' : block}</td>
+    </tr>`;
+  }
+  html += '</tbody>';
+  document.getElementById('cidrTable').innerHTML = html;
+}
+
+// ==================== VLSM ====================
+function calcVLSM() {
+  const baseInput = document.getElementById('vlsmBase').value.trim();
+  const hostsInput = document.getElementById('vlsmHosts').value.trim();
+
+  const parts = baseInput.split('/');
+  if (parts.length !== 2 || !isValidIP(parts[0].trim())) { showToast('Invalid base network'); return; }
+
+  const baseNetIP = parts[0].trim();
+  const baseCIDR = parseInt(parts[1]);
+  let currentAddr = ipToNum(baseNetIP) & ipToNum(numToIp(cidrToMask(baseCIDR)));
+
+  const requirements = hostsInput.split(',').map(h => parseInt(h.trim())).filter(h => !isNaN(h) && h > 0);
+  requirements.sort((a, b) => b - a); // largest first
+
+  const subnets = [];
+  for (const needed of requirements) {
+    // Find smallest block that fits
+    let hostBits = 1;
+    while (Math.pow(2, hostBits) - 2 < needed) hostBits++;
+    const cidr = 32 - hostBits;
+    const mask = cidrToMask(cidr);
+    const block = Math.pow(2, hostBits);
+    // Align
+    const netAddr = (currentAddr & mask) >>> 0;
+    const alignedStart = netAddr >= currentAddr ? netAddr : currentAddr + (block - (currentAddr % block));
+    const networkNum = alignedStart >>> 0;
+    const broadcastNum = (networkNum + block - 1) >>> 0;
+    subnets.push({
+      need: needed,
+      cidr,
+      mask: numToIp(mask),
+      network: numToIp(networkNum),
+      broadcast: numToIp(broadcastNum),
+      first: numToIp(networkNum + 1),
+      last: numToIp(broadcastNum - 1),
+      block,
+      usable: block - 2,
+    });
+    currentAddr = broadcastNum + 1;
+  }
+
+  let html = `<div class="card">
+    <div class="card-title">⬡ VLSM Allocation Result</div>
+    <div style="overflow-x:auto;">
+    <table class="data-table">
+      <thead><tr><th>#</th><th>Hosts Needed</th><th>Network</th><th>CIDR</th><th>Mask</th><th>First Host</th><th>Last Host</th><th>Broadcast</th><th>Usable</th></tr></thead>
+      <tbody>`;
+
+  subnets.forEach((s, i) => {
+    const colors = ['var(--neon)', 'var(--neon2)', 'var(--neon3)', '#00ff64', '#a78bfa'];
+    const col = colors[i % colors.length];
+    html += `<tr>
+      <td style="color:${col};font-weight:700;">${i + 1}</td>
+      <td style="color:${col}">${s.need}</td>
+      <td style="color:var(--neon);font-weight:700;">${s.network}</td>
+      <td>/${s.cidr}</td>
+      <td style="font-size:0.7rem">${s.mask}</td>
+      <td>${s.first}</td>
+      <td>${s.last}</td>
+      <td style="color:var(--neon2)">${s.broadcast}</td>
+      <td style="color:var(--neon)">${s.usable}</td>
+    </tr>`;
+  });
+
+  html += `</tbody></table></div></div>`;
+  document.getElementById('vlsmResult').innerHTML = html;
+}
+
+// ==================== TABS ====================
+function switchTab(name) {
+  document.querySelectorAll('.tab-panel').forEach(p => p.classList.remove('active'));
+  document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+  document.getElementById('tab-' + name).classList.add('active');
+  event.target.classList.add('active');
+
+  if (name === 'cidr') buildCIDRTable();
+}
+
+// ==================== INIT ====================
+window.onload = () => {
+  calculate();
+  // Sync binary tab
+  document.getElementById('binIpInput').value = '192.168.1.100';
+  document.getElementById('binCidrInput').value = '/24';
+  updateBinary();
+  calcWildcard();
+  detectClass();
+};
+</script>
+</body>
+</html>
